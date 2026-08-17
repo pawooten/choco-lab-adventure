@@ -3,6 +3,21 @@ import './style.css'
 
 type GameStatus = 'title' | 'playing' | 'won' | 'game-over'
 type GameMode = 'normal' | 'casual'
+type EnemyConfig = [texture: string, x: number, y: number, minX: number, maxX: number, speed: number, gravity?: boolean]
+type LedgeConfig = [x: number, y: number, width: number]
+
+type LevelConfig = {
+  name: string
+  subtitle: string
+  theme: 'meadow' | 'beach' | 'factory' | 'mansion' | 'bowling' | 'vet'
+  skyColor: number
+  groundTint: number
+  platformTint: number
+  gaps: Array<[number, number]>
+  ledges: LedgeConfig[]
+  enemies: EnemyConfig[]
+  goalLabel: string
+}
 
 declare global {
   interface Window {
@@ -14,6 +29,8 @@ declare global {
       lives: number
       mode: GameMode
       paused: boolean
+      level: number
+      levelName: string
     }
     chocoMusic: MeadowMusic
   }
@@ -37,9 +54,143 @@ const gameState = {
   lives: 3,
   mode: 'normal' as GameMode,
   paused: false,
+  level: 0,
+  levelName: 'Sunny Meadow',
 }
 
 window.chocoGameState = gameState
+
+const LEVELS: LevelConfig[] = [
+  {
+    name: 'Sunny Meadow',
+    subtitle: 'The biscuit trail begins!',
+    theme: 'meadow',
+    skyColor: 0x88cfed,
+    groundTint: 0xffffff,
+    platformTint: 0xffffff,
+    gaps: [[1050, 1220], [2450, 2640], [4580, 4780], [6100, 6260]],
+    ledges: [
+      [550, 365, 1], [800, 305, 1], [1100, 395, 1], [1260, 330, 1], [1510, 270, 2],
+      [1880, 350, 1], [2180, 290, 1], [2510, 390, 1], [2710, 325, 1], [3050, 270, 2],
+      [3480, 375, 1], [3770, 300, 1], [4080, 240, 2], [4630, 385, 1], [4860, 320, 1],
+      [5210, 260, 2], [5660, 355, 1], [6130, 390, 1], [6340, 320, 1], [6620, 250, 2],
+    ],
+    enemies: [
+      ['raccoon', 720, 415, 610, 930, 75], ['bee', 1360, 230, 1230, 1680, 95, false],
+      ['raccoon', 2050, 415, 1910, 2300, 90], ['bee', 2900, 205, 2670, 3260, 105, false],
+      ['raccoon', 3590, 415, 3420, 3900, 95], ['bee', 4380, 185, 4020, 4510, 110, false],
+      ['raccoon', 5430, 415, 5290, 5790, 105], ['bee', 6460, 185, 6250, 6790, 120, false],
+    ],
+    goalLabel: 'HOME!',
+  },
+  {
+    name: 'Biscuit Bay',
+    subtitle: 'Surf, sand, and sneaky crabs',
+    theme: 'beach',
+    skyColor: 0x63c9ef,
+    groundTint: 0xffdda0,
+    platformTint: 0xeec777,
+    gaps: [[900, 1120], [2060, 2290], [3660, 3890], [5250, 5510], [6400, 6580]],
+    ledges: [
+      [430, 360, 1], [710, 300, 2], [1010, 390, 1], [1230, 325, 1], [1510, 260, 1],
+      [1800, 340, 2], [2160, 390, 1], [2430, 310, 1], [2780, 245, 2], [3190, 350, 1],
+      [3540, 285, 1], [3750, 390, 1], [4060, 315, 2], [4510, 250, 1], [4930, 350, 2],
+      [5380, 390, 1], [5650, 310, 1], [5980, 245, 2], [6460, 360, 1], [6750, 285, 1],
+    ],
+    enemies: [
+      ['crab', 650, 425, 500, 850, 90], ['seagull', 1440, 220, 1170, 1720, 110, false],
+      ['crab', 2640, 425, 2380, 3200, 105], ['seagull', 3410, 210, 3050, 3600, 120, false],
+      ['crab', 4760, 425, 4460, 5170, 115], ['seagull', 5830, 190, 5550, 6220, 130, false],
+      ['crab', 6810, 425, 6630, 7000, 125],
+    ],
+    goalLabel: 'BOARDWALK!',
+  },
+  {
+    name: 'Hot Dog Factory',
+    subtitle: 'Conveyors, condiments, and runaway snacks',
+    theme: 'factory',
+    skyColor: 0x7f8794,
+    groundTint: 0x9c9389,
+    platformTint: 0xd97849,
+    gaps: [[820, 1040], [1840, 2060], [3280, 3520], [4700, 4970], [6040, 6260]],
+    ledges: [
+      [390, 350, 2], [760, 285, 1], [950, 390, 1], [1190, 315, 2], [1580, 245, 1],
+      [1920, 390, 1], [2190, 325, 2], [2600, 260, 1], [2960, 345, 2], [3390, 390, 1],
+      [3650, 300, 1], [3970, 235, 2], [4410, 340, 1], [4830, 390, 1], [5100, 300, 2],
+      [5520, 235, 1], [5880, 345, 2], [6150, 390, 1], [6460, 300, 1], [6760, 235, 2],
+    ],
+    enemies: [
+      ['sausage-bot', 620, 420, 480, 790, 100], ['mustard-drone', 1460, 205, 1100, 1760, 120, false],
+      ['sausage-bot', 2440, 420, 2110, 3150, 115], ['mustard-drone', 3780, 190, 3550, 4300, 130, false],
+      ['sausage-bot', 5310, 420, 5010, 5900, 125], ['mustard-drone', 6540, 190, 6300, 6900, 140, false],
+    ],
+    goalLabel: 'SHIPPING!',
+  },
+  {
+    name: 'Howling Hall',
+    subtitle: 'A haunted mansion full of friendly frights',
+    theme: 'mansion',
+    skyColor: 0x17162c,
+    groundTint: 0x65526e,
+    platformTint: 0x755b78,
+    gaps: [[980, 1190], [2310, 2540], [3850, 4080], [5020, 5270], [6280, 6490]],
+    ledges: [
+      [470, 355, 1], [720, 290, 1], [1040, 390, 1], [1320, 315, 2], [1710, 245, 1],
+      [2100, 340, 1], [2420, 390, 1], [2700, 305, 2], [3130, 235, 1], [3500, 345, 1],
+      [3970, 390, 1], [4270, 300, 2], [4660, 230, 1], [5150, 390, 1], [5440, 315, 1],
+      [5740, 245, 2], [6170, 345, 1], [6400, 390, 1], [6700, 300, 2],
+    ],
+    enemies: [
+      ['ghost', 690, 230, 430, 930, 95, false], ['spider', 1570, 420, 1220, 2200, 105],
+      ['ghost', 2900, 190, 2600, 3400, 115, false], ['spider', 3670, 420, 3450, 3810, 115],
+      ['ghost', 4530, 180, 4150, 4920, 125, false], ['spider', 5600, 420, 5310, 6160, 125],
+      ['ghost', 6750, 190, 6520, 7040, 135, false],
+    ],
+    goalLabel: 'FRONT DOOR!',
+  },
+  {
+    name: 'Cosmic Bowling',
+    subtitle: 'Neon lanes and rolling trouble',
+    theme: 'bowling',
+    skyColor: 0x120d2a,
+    groundTint: 0x514287,
+    platformTint: 0xe65ccc,
+    gaps: [[740, 940], [1730, 1960], [3010, 3240], [4380, 4630], [5800, 6050]],
+    ledges: [
+      [370, 360, 1], [620, 290, 1], [820, 390, 1], [1090, 315, 2], [1450, 245, 1],
+      [1830, 390, 1], [2110, 325, 1], [2450, 255, 2], [2870, 350, 1], [3130, 390, 1],
+      [3440, 300, 2], [3870, 230, 1], [4260, 345, 1], [4500, 390, 1], [4820, 305, 2],
+      [5240, 235, 1], [5650, 345, 1], [5940, 390, 1], [6260, 300, 2], [6720, 235, 1],
+    ],
+    enemies: [
+      ['bowling-ball', 560, 424, 370, 700, 125], ['cosmic-pin', 1370, 405, 1020, 1640, 105],
+      ['bowling-ball', 2700, 424, 2040, 2940, 145], ['cosmic-pin', 3660, 405, 3350, 4180, 120],
+      ['bowling-ball', 5200, 424, 4720, 5680, 155], ['cosmic-pin', 6500, 405, 6150, 7000, 135],
+    ],
+    goalLabel: 'ARCADE EXIT!',
+  },
+  {
+    name: 'Escape from the Vet',
+    subtitle: 'The final dash to freedom!',
+    theme: 'vet',
+    skyColor: 0xc8eef0,
+    groundTint: 0xc9dce0,
+    platformTint: 0x78b9b4,
+    gaps: [[860, 1080], [2140, 2380], [3480, 3740], [4870, 5130], [6230, 6460]],
+    ledges: [
+      [420, 350, 1], [690, 280, 2], [960, 390, 1], [1220, 310, 1], [1510, 235, 2],
+      [1970, 340, 1], [2260, 390, 1], [2550, 300, 2], [2990, 225, 1], [3360, 345, 1],
+      [3620, 390, 1], [3970, 295, 2], [4410, 220, 1], [5000, 390, 1], [5320, 310, 2],
+      [5750, 235, 1], [6150, 345, 1], [6360, 390, 1], [6670, 285, 2],
+    ],
+    enemies: [
+      ['robo-vac', 620, 420, 380, 820, 115], ['vet-cone', 1430, 410, 1150, 1900, 105],
+      ['robo-vac', 2780, 420, 2460, 3310, 135], ['vet-cone', 4210, 410, 3850, 4700, 120],
+      ['robo-vac', 5540, 420, 5220, 6100, 145], ['vet-cone', 6810, 410, 6530, 7040, 135],
+    ],
+    goalLabel: 'FREEDOM!',
+  },
+]
 
 class MeadowMusic {
   private context: AudioContext | undefined
@@ -429,6 +580,72 @@ const createPixelArt = (scene: Phaser.Scene) => {
     [outline, 27, 12, 5, 4],
   ])
 
+  pixelTexture(scene, 'crab', 44, 30, [
+    [outline, 9, 9, 27, 17], [0xe76549, 11, 10, 23, 15],
+    [outline, 12, 5, 7, 8], [outline, 27, 5, 7, 8],
+    [cream, 14, 6, 3, 3], [cream, 29, 6, 3, 3],
+    [outline, 0, 10, 12, 5], [outline, 34, 10, 10, 5],
+    [0xe76549, 1, 7, 8, 8], [0xe76549, 36, 7, 7, 8],
+    [outline, 5, 24, 10, 4], [outline, 29, 24, 10, 4],
+  ])
+
+  pixelTexture(scene, 'seagull', 46, 28, [
+    [0xffffff, 4, 8, 37, 12], [0xd6e7ec, 0, 3, 19, 8], [0xd6e7ec, 27, 3, 19, 8],
+    [outline, 31, 10, 5, 5], [0xf3b547, 39, 12, 7, 4], [0x82939e, 17, 17, 15, 7],
+  ])
+
+  pixelTexture(scene, 'sausage-bot', 50, 36, [
+    [outline, 5, 8, 40, 21], [0xc94d38, 7, 10, 36, 17],
+    [0xe9a35c, 2, 12, 8, 13], [0xe9a35c, 40, 12, 8, 13],
+    [0xf5d84e, 12, 13, 5, 3], [0xf5d84e, 20, 17, 5, 3], [0xf5d84e, 29, 13, 5, 3],
+    [outline, 12, 28, 7, 7], [outline, 31, 28, 7, 7],
+  ])
+
+  pixelTexture(scene, 'mustard-drone', 42, 30, [
+    [outline, 6, 8, 30, 18], [0xf2c94c, 8, 10, 26, 14],
+    [0x8cd4dc, 0, 2, 15, 8], [0x8cd4dc, 27, 2, 15, 8],
+    [outline, 13, 13, 4, 4], [outline, 26, 13, 4, 4], [0xc94d38, 18, 19, 8, 3],
+  ])
+
+  pixelTexture(scene, 'ghost', 42, 44, [
+    [0x27213e, 4, 3, 34, 39], [0xe8e5ff, 7, 4, 28, 32],
+    [0xcfc9ef, 7, 26, 7, 14], [0xe8e5ff, 14, 29, 7, 13],
+    [0xcfc9ef, 21, 27, 7, 15], [0xe8e5ff, 28, 29, 7, 13],
+    [outline, 12, 15, 5, 7], [outline, 26, 15, 5, 7], [0x796b99, 18, 25, 7, 4],
+  ])
+
+  pixelTexture(scene, 'spider', 42, 30, [
+    [outline, 9, 7, 24, 19], [0x503f67, 12, 9, 18, 15],
+    [0xf178a7, 17, 12, 8, 6], [cream, 14, 10, 3, 3], [cream, 26, 10, 3, 3],
+    [outline, 0, 5, 12, 4], [outline, 30, 5, 12, 4],
+    [outline, 0, 15, 12, 4], [outline, 30, 15, 12, 4],
+    [outline, 3, 25, 12, 4], [outline, 27, 25, 12, 4],
+  ])
+
+  pixelTexture(scene, 'bowling-ball', 38, 38, [
+    [outline, 2, 2, 34, 34], [0x784db5, 5, 5, 28, 28],
+    [0xe65ccc, 9, 8, 8, 6], [0x1e1838, 14, 12, 5, 5],
+    [0x1e1838, 22, 9, 5, 5], [0x1e1838, 23, 18, 5, 5],
+  ])
+
+  pixelTexture(scene, 'cosmic-pin', 34, 46, [
+    [outline, 8, 1, 18, 43], [0xffffff, 11, 3, 12, 38],
+    [0xf05da9, 9, 13, 16, 7], [0x8a63e8, 10, 20, 14, 4],
+    [outline, 13, 28, 3, 4], [outline, 20, 28, 3, 4],
+  ])
+
+  pixelTexture(scene, 'robo-vac', 50, 32, [
+    [outline, 3, 8, 44, 20], [0x5aa6a7, 6, 10, 38, 16],
+    [0xc5f1ee, 10, 5, 20, 8], [outline, 14, 13, 5, 5], [outline, 31, 13, 5, 5],
+    [0xef6a66, 38, 11, 5, 5], [outline, 9, 27, 9, 5], [outline, 33, 27, 9, 5],
+  ])
+
+  pixelTexture(scene, 'vet-cone', 40, 42, [
+    [outline, 4, 4, 32, 34], [0xf4eee2, 8, 7, 24, 27],
+    [0x68b7b2, 10, 11, 20, 5], [outline, 13, 19, 4, 5], [outline, 24, 19, 4, 5],
+    [0xe68b81, 17, 27, 8, 4], [outline, 1, 35, 38, 6],
+  ])
+
   pixelTexture(scene, 'doghouse', 96, 94, [
     [0x5f351e, 8, 32, 80, 58],
     [0xc95a3f, 4, 30, 88, 12],
@@ -440,6 +657,12 @@ const createPixelArt = (scene: Phaser.Scene) => {
     [cream, 19, 45, 58, 7],
     [0xf8e6b5, 31, 20, 34, 11],
     [chocolate, 38, 22, 20, 7],
+  ])
+
+  pixelTexture(scene, 'exit-door', 82, 110, [
+    [outline, 3, 3, 76, 107], [0x784536, 8, 8, 66, 97],
+    [0xf8d77e, 17, 16, 48, 22], [outline, 25, 22, 32, 10],
+    [0xfff4d6, 30, 24, 22, 6], [0xe9b653, 61, 57, 7, 7],
   ])
 
   pixelTexture(scene, 'ground', 64, 64, [
@@ -509,8 +732,11 @@ class TitleScene extends Phaser.Scene {
 
   create() {
     gameState.status = 'title'
+    gameState.levelName = LEVELS[0].name
     this.cameras.main.setBackgroundColor('#82c8e8')
-    createPixelArt(this)
+    if (!this.textures.exists('choco-idle')) {
+      createPixelArt(this)
+    }
 
     for (let i = 0; i < 5; i += 1) {
       this.add.image(110 + i * 205, 110 + (i % 2) * 50, 'cloud').setScale(0.7)
@@ -622,6 +848,8 @@ class TitleScene extends Phaser.Scene {
 
     const begin = () => {
       if (this.scene.isActive()) {
+        gameState.level = 0
+        gameState.lives = 3
         void meadowMusic.start()
         this.scene.start('GameScene')
       }
@@ -651,17 +879,23 @@ class GameScene extends Phaser.Scene {
   private isPaused = false
   private pauseButton!: Phaser.GameObjects.Text
   private pauseOverlay!: Phaser.GameObjects.Container
+  private level!: LevelConfig
 
   constructor() {
     super('GameScene')
   }
 
   create() {
+    this.level = LEVELS[gameState.level]
     gameState.status = 'playing'
     gameState.biscuits = 0
-    gameState.lives = 3
+    gameState.levelName = this.level.name
     gameState.paused = false
     this.isPaused = false
+    this.isComplete = false
+    this.isInvulnerable = false
+    this.checkpointX = 120
+    this.physics.resume()
     meadowMusic.resumeBackground()
     controls.left = false
     controls.right = false
@@ -674,7 +908,7 @@ class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, GAME_HEIGHT)
     this.physics.world.setBoundsCollision(true, true, true, false)
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, GAME_HEIGHT)
-    this.cameras.main.setBackgroundColor('#88cfed')
+    this.cameras.main.setBackgroundColor(this.level.skyColor)
 
     this.createBackground()
     this.createLevel()
@@ -702,9 +936,10 @@ class GameScene extends Phaser.Scene {
 
     this.createHud()
     this.createPauseUi()
+    this.showLevelIntro()
 
     this.add
-      .text(185, 350, 'Follow the biscuit trail!', {
+      .text(215, 350, this.level.subtitle, {
         fontFamily: '"Courier New", monospace',
         fontSize: '17px',
         color: '#4a2b25',
@@ -714,7 +949,8 @@ class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
 
-    this.time.delayedCall(2600, () => {
+    if (gameState.level === 0) {
+      this.time.delayedCall(2600, () => {
       const hint = this.add
         .text(540, 315, 'Hot dogs give +1 life!', {
           fontFamily: '"Courier New", monospace',
@@ -726,7 +962,8 @@ class GameScene extends Phaser.Scene {
         })
         .setOrigin(0.5)
       this.tweens.add({ targets: hint, alpha: 0, delay: 3000, duration: 500, onComplete: () => hint.destroy() })
-    })
+      })
+    }
 
     this.input.keyboard?.on('keydown-P', this.togglePause, this)
     this.input.keyboard?.on('keydown-ESC', this.togglePause, this)
@@ -809,27 +1046,107 @@ class GameScene extends Phaser.Scene {
 
   private createBackground() {
     const far = this.add.graphics()
-    far.fillStyle(0xd8f2fa)
+    far.fillStyle(this.level.skyColor)
     far.fillRect(0, 0, WORLD_WIDTH, GAME_HEIGHT)
 
-    const hills = this.add.graphics()
-    hills.fillStyle(0x9ac777)
-    for (let x = 0; x < WORLD_WIDTH; x += 360) {
-      hills.fillCircle(x + 130, 420, 190)
-      hills.fillCircle(x + 330, 430, 145)
-    }
-    hills.setScrollFactor(0.2)
-
-    const distantTrees = this.add.group()
-    for (let x = 120; x < WORLD_WIDTH; x += 290) {
-      const tree = this.add.image(x, 400, 'tree').setOrigin(0.5, 1).setScale(0.75)
-      tree.setTint(x % 580 === 0 ? 0x9cc286 : 0x82b978)
-      tree.setScrollFactor(0.45)
-      distantTrees.add(tree)
-    }
-
-    for (let x = 180; x < WORLD_WIDTH; x += 620) {
-      this.add.image(x, 95 + (x % 3) * 22, 'cloud').setScrollFactor(0.12).setAlpha(0.85)
+    const scenery = this.add.graphics().setScrollFactor(0.25)
+    switch (this.level.theme) {
+      case 'meadow':
+        scenery.fillStyle(0x9ac777)
+        for (let x = 0; x < WORLD_WIDTH; x += 360) {
+          scenery.fillCircle(x + 130, 420, 190)
+          scenery.fillCircle(x + 330, 430, 145)
+        }
+        for (let x = 120; x < WORLD_WIDTH; x += 290) {
+          this.add.image(x, 400, 'tree').setOrigin(0.5, 1).setScale(0.75).setTint(0x82b978).setScrollFactor(0.45)
+        }
+        for (let x = 180; x < WORLD_WIDTH; x += 620) {
+          this.add.image(x, 95 + (x % 3) * 22, 'cloud').setScrollFactor(0.12).setAlpha(0.85)
+        }
+        break
+      case 'beach':
+        scenery.fillStyle(0xffd36b)
+        scenery.fillCircle(640, 100, 56)
+        scenery.fillStyle(0x269ed0)
+        scenery.fillRect(0, 305, WORLD_WIDTH, 170)
+        scenery.lineStyle(5, 0x91e3ef, 1)
+        for (let x = 0; x < WORLD_WIDTH; x += 120) {
+          scenery.strokeLineShape(new Phaser.Geom.Line(x, 340 + (x % 240 ? 12 : 0), x + 70, 340))
+        }
+        for (let x = 300; x < WORLD_WIDTH; x += 720) {
+          scenery.fillStyle(0xd95757)
+          scenery.fillTriangle(x, 395, x + 70, 320, x + 140, 395)
+          scenery.lineStyle(8, 0x68442d)
+          scenery.lineBetween(x + 70, 320, x + 70, 455)
+        }
+        break
+      case 'factory':
+        scenery.fillStyle(0x59616d)
+        scenery.fillRect(0, 90, WORLD_WIDTH, 390)
+        scenery.lineStyle(5, 0x424853)
+        for (let x = 0; x < WORLD_WIDTH; x += 220) {
+          scenery.strokeRect(x + 20, 120, 170, 120)
+          scenery.lineBetween(x + 105, 120, x + 105, 240)
+          scenery.lineBetween(x + 20, 180, x + 190, 180)
+        }
+        scenery.lineStyle(18, 0xcf7151)
+        scenery.lineBetween(0, 285, WORLD_WIDTH, 285)
+        scenery.lineStyle(6, 0xf2bd53)
+        scenery.lineBetween(0, 285, WORLD_WIDTH, 285)
+        break
+      case 'mansion':
+        scenery.fillStyle(0xd6d3f4)
+        scenery.fillCircle(710, 100, 62)
+        scenery.fillStyle(0x29233f)
+        scenery.fillRect(0, 130, WORLD_WIDTH, 350)
+        for (let x = 80; x < WORLD_WIDTH; x += 260) {
+          scenery.fillStyle(0x514463)
+          scenery.fillRect(x, 170, 180, 260)
+          scenery.fillStyle(0xc7a452)
+          scenery.fillRect(x + 35, 215, 42, 65)
+          scenery.fillRect(x + 105, 215, 42, 65)
+          scenery.lineStyle(6, 0x2a2238)
+          scenery.strokeRect(x + 35, 215, 42, 65)
+          scenery.strokeRect(x + 105, 215, 42, 65)
+        }
+        break
+      case 'bowling':
+        scenery.fillStyle(0x211548)
+        scenery.fillRect(0, 0, WORLD_WIDTH, GAME_HEIGHT)
+        for (let x = 40; x < WORLD_WIDTH; x += 190) {
+          scenery.fillStyle(x % 380 ? 0x55d9e8 : 0xf05da9)
+          scenery.fillCircle(x, 90 + (x % 5) * 25, 5)
+        }
+        scenery.lineStyle(8, 0x713f91)
+        for (let x = 0; x < WORLD_WIDTH; x += 240) {
+          scenery.lineBetween(x, 360, x + 190, 360)
+          scenery.lineBetween(x + 20, 410, x + 210, 410)
+        }
+        scenery.lineStyle(3, 0x38d9d2, 0.8)
+        scenery.lineBetween(0, 280, WORLD_WIDTH, 280)
+        break
+      case 'vet':
+        scenery.fillStyle(0xe7f5f3)
+        scenery.fillRect(0, 0, WORLD_WIDTH, GAME_HEIGHT)
+        scenery.lineStyle(3, 0xb4d9d7)
+        for (let x = 0; x < WORLD_WIDTH; x += 80) {
+          scenery.lineBetween(x, 0, x, 480)
+        }
+        for (let y = 80; y < 480; y += 80) {
+          scenery.lineBetween(0, y, WORLD_WIDTH, y)
+        }
+        for (let x = 180; x < WORLD_WIDTH; x += 560) {
+          scenery.fillStyle(0x6baaa7)
+          scenery.fillRect(x, 160, 260, 170)
+          scenery.fillStyle(0xc9ece8)
+          scenery.fillRect(x + 15, 175, 105, 58)
+          scenery.fillRect(x + 140, 175, 105, 58)
+          scenery.fillStyle(0xed8f83)
+          scenery.fillCircle(x + 130, 125, 28)
+          scenery.fillRect(x + 122, 87, 16, 76)
+          scenery.fillRect(x + 92, 117, 76, 16)
+        }
+        break
     }
   }
 
@@ -837,61 +1154,37 @@ class GameScene extends Phaser.Scene {
     this.platforms = this.physics.add.staticGroup()
     for (let x = 32; x < WORLD_WIDTH; x += 64) {
       const ground = this.platforms.create(x, GROUND_Y + 30, 'ground') as Phaser.Physics.Arcade.Image
+      ground.setTint(this.level.groundTint)
       ground.refreshBody()
     }
 
-    const gaps: Array<[number, number]> = [
-      [1050, 1220],
-      [2450, 2640],
-      [4580, 4780],
-      [6100, 6260],
-    ]
     this.platforms.children.iterate((child) => {
       const platform = child as Phaser.Physics.Arcade.Image
-      if (gaps.some(([start, end]) => platform.x > start && platform.x < end)) {
+      if (this.level.gaps.some(([start, end]) => platform.x > start && platform.x < end)) {
         platform.disableBody(true, true)
       }
       return true
     })
 
-    const ledges: Array<[number, number, number]> = [
-      [550, 365, 1],
-      [800, 305, 1],
-      [1100, 395, 1],
-      [1260, 330, 1],
-      [1510, 270, 2],
-      [1880, 350, 1],
-      [2180, 290, 1],
-      [2510, 390, 1],
-      [2710, 325, 1],
-      [3050, 270, 2],
-      [3480, 375, 1],
-      [3770, 300, 1],
-      [4080, 240, 2],
-      [4630, 385, 1],
-      [4860, 320, 1],
-      [5210, 260, 2],
-      [5660, 355, 1],
-      [6130, 390, 1],
-      [6340, 320, 1],
-      [6620, 250, 2],
-    ]
-    ledges.forEach(([x, y, width]) => {
+    this.level.ledges.forEach(([x, y, width]) => {
       for (let i = 0; i < width; i += 1) {
         const platform = this.platforms.create(x + i * 92, y, 'platform') as Phaser.Physics.Arcade.Image
+        platform.setTint(this.level.platformTint)
         platform.refreshBody()
       }
     })
 
-    const biscuitPositions: Array<[number, number]> = [
-      [310, 420], [430, 420], [550, 315], [800, 255], [970, 410],
-      [1110, 340], [1260, 280], [1510, 220], [1600, 220], [1800, 410],
-      [1880, 300], [2180, 240], [2360, 410], [2520, 340], [2710, 275],
-      [3050, 220], [3140, 220], [3370, 410], [3480, 325], [3770, 250],
-      [4080, 190], [4170, 190], [4440, 410], [4640, 335], [4860, 270],
-      [5210, 210], [5300, 210], [5530, 410], [5660, 305], [5900, 410],
-      [6140, 340], [6340, 270], [6620, 200], [6710, 200], [6920, 410],
-    ]
+    const biscuitPositions: Array<[number, number]> = []
+    for (let x = 320; x < WORLD_WIDTH - 280; x += 470) {
+      if (!this.level.gaps.some(([start, end]) => x > start - 40 && x < end + 40)) {
+        biscuitPositions.push([x, 420])
+      }
+    }
+    this.level.ledges.forEach(([x, y, width]) => {
+      for (let i = 0; i < width; i += 1) {
+        biscuitPositions.push([x + i * 92, y - 50])
+      }
+    })
     this.biscuits = this.physics.add.group({ allowGravity: false, immovable: true })
     biscuitPositions.forEach(([x, y], index) => {
       const biscuit = this.biscuits.create(x, y, 'biscuit') as Phaser.Physics.Arcade.Image
@@ -909,28 +1202,20 @@ class GameScene extends Phaser.Scene {
     gameState.totalBiscuits = biscuitPositions.length
 
     this.hotdogs = this.physics.add.group({ allowGravity: false, immovable: true })
-    ;[
-      [1585, 195],
-      [4125, 165],
-      [6665, 175],
-    ].forEach(([x, y]) => {
+    ;[4, 12, this.level.ledges.length - 2].map((index) => this.level.ledges[index]).forEach(([x, y, width]) => {
+      const hotdogX = x + (width - 1) * 46
       const hotdog = this.hotdogs.create(x, y, 'hotdog') as Phaser.Physics.Arcade.Image
+      hotdog.setPosition(hotdogX, y - 75)
       this.tweens.add({ targets: hotdog, scale: 1.12, duration: 500, yoyo: true, repeat: -1 })
     })
 
     this.enemies = this.physics.add.group()
-    this.addEnemy('raccoon', 720, 415, 610, 930, 75)
-    this.addEnemy('bee', 1360, 230, 1230, 1680, 95, false)
-    this.addEnemy('raccoon', 2050, 415, 1910, 2300, 90)
-    this.addEnemy('bee', 2900, 205, 2670, 3260, 105, false)
-    this.addEnemy('raccoon', 3590, 415, 3420, 3900, 95)
-    this.addEnemy('bee', 4380, 185, 4020, 4510, 110, false)
-    this.addEnemy('raccoon', 5430, 415, 5290, 5790, 105)
-    this.addEnemy('bee', 6460, 185, 6250, 6790, 120, false)
+    this.level.enemies.forEach((enemy) => this.addEnemy(...enemy))
 
-    this.add.image(WORLD_WIDTH - 170, 408, 'doghouse').setOrigin(0.5, 1)
+    const goalTexture = this.level.theme === 'meadow' ? 'doghouse' : 'exit-door'
+    this.add.image(WORLD_WIDTH - 170, 448, goalTexture).setOrigin(0.5, 1)
     this.add
-      .text(WORLD_WIDTH - 170, 315, 'HOME!', {
+      .text(WORLD_WIDTH - 170, 315, this.level.goalLabel, {
         fontFamily: '"Courier New", monospace',
         fontSize: '18px',
         color: '#fff4d6',
@@ -940,8 +1225,10 @@ class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
 
-    for (let x = 180; x < WORLD_WIDTH; x += 430) {
-      this.add.image(x, 454, 'flower').setOrigin(0.5, 1).setFlipX(x % 2 === 0)
+    if (this.level.theme === 'meadow') {
+      for (let x = 180; x < WORLD_WIDTH; x += 430) {
+        this.add.image(x, 454, 'flower').setOrigin(0.5, 1).setFlipX(x % 2 === 0)
+      }
     }
   }
 
@@ -959,7 +1246,7 @@ class GameScene extends Phaser.Scene {
     enemy.setVelocityX(speed)
     enemy.setImmovable(true)
     ;(enemy.body as Phaser.Physics.Arcade.Body).setAllowGravity(gravity)
-    enemy.setSize(texture === 'bee' ? 28 : 38, texture === 'bee' ? 20 : 34)
+    enemy.setSize(gravity ? 36 : 30, gravity ? 32 : 22)
     if (!gravity) {
       this.tweens.add({ targets: enemy, y: y + 28, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' })
     }
@@ -1021,8 +1308,54 @@ class GameScene extends Phaser.Scene {
       .setOrigin(1, 0)
       .setScrollFactor(0)
 
+    this.add
+      .text(480, 22, `LEVEL ${gameState.level + 1}/${LEVELS.length} · ${this.level.name.toUpperCase()}`, {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '16px',
+        color: '#fff4d6',
+        backgroundColor: '#2d201dcc',
+        padding: { x: 12, y: 7 },
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+
     this.livesGroup = this.add.group()
     this.updateLivesHud()
+  }
+
+  private showLevelIntro() {
+    const banner = this.add
+      .container(480, 245, [
+        this.add.rectangle(0, 0, 610, 125, 0x2d201d, 0.9).setStrokeStyle(4, 0xffe7ab),
+        this.add
+          .text(0, -22, `LEVEL ${gameState.level + 1}: ${this.level.name.toUpperCase()}`, {
+            fontFamily: '"Courier New", monospace',
+            fontSize: '25px',
+            color: '#fff4d6',
+            fontStyle: 'bold',
+          })
+          .setOrigin(0.5),
+        this.add
+          .text(0, 24, this.level.subtitle, {
+            fontFamily: '"Courier New", monospace',
+            fontSize: '16px',
+            color: '#ffd47c',
+            fontStyle: 'bold',
+          })
+          .setOrigin(0.5),
+      ])
+      .setScrollFactor(0)
+      .setDepth(900)
+      .setAlpha(0)
+    this.tweens.add({
+      targets: banner,
+      alpha: 1,
+      duration: 250,
+      hold: 1300,
+      yoyo: true,
+      onComplete: () => banner.destroy(),
+    })
   }
 
   private createPauseUi() {
@@ -1310,6 +1643,7 @@ class GameScene extends Phaser.Scene {
     this.player.setAccelerationX(0)
     this.player.setVelocityX(0)
     this.player.play('idle')
+    this.physics.pause()
     this.cameras.main.flash(500, 255, 244, 214)
     this.time.delayedCall(500, () => this.showEndCard(true))
   }
@@ -1317,10 +1651,17 @@ class GameScene extends Phaser.Scene {
   private showEndCard(won: boolean) {
     const camera = this.cameras.main
     const x = camera.scrollX + GAME_WIDTH / 2
-    const title = won ? 'TAIL-WAGGING VICTORY!' : 'OH, BISCUITS!'
+    const isFinalLevel = gameState.level === LEVELS.length - 1
+    const title = won
+      ? isFinalLevel
+        ? 'FREEDOM! WHAT A GOOD DOG!'
+        : `${this.level.name.toUpperCase()} COMPLETE!`
+      : 'OH, BISCUITS!'
     const subtitle = won
-      ? `Choco brought home ${gameState.biscuits} of ${gameState.totalBiscuits} biscuits.`
-      : 'Choco needs another try.'
+      ? isFinalLevel
+        ? `Choco escaped the vet and finished all ${LEVELS.length} adventures!`
+        : `Choco found ${gameState.biscuits} of ${gameState.totalBiscuits} biscuits. Next stop: ${LEVELS[gameState.level + 1].name}!`
+      : `${this.level.name} needs another try.`
 
     this.add.rectangle(x, 270, 630, 300, 0x2d201d, 0.93).setStrokeStyle(5, 0xffe7ab)
     this.add
@@ -1340,8 +1681,13 @@ class GameScene extends Phaser.Scene {
         wordWrap: { width: 520 },
       })
       .setOrigin(0.5)
+    const actionLabel = won
+      ? isFinalLevel
+        ? 'PRESS SPACE OR TAP FOR TITLE'
+        : 'PRESS SPACE OR TAP FOR NEXT LEVEL'
+      : 'PRESS SPACE OR TAP TO RETRY LEVEL'
     const retry = this.add
-      .text(x, 350, 'PRESS SPACE OR TAP TO PLAY AGAIN', {
+      .text(x, 350, actionLabel, {
         fontFamily: '"Courier New", monospace',
         fontSize: '18px',
         color: '#4a2b25',
@@ -1352,9 +1698,22 @@ class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
 
-    const restart = () => this.scene.restart()
-    retry.on('pointerdown', restart)
-    this.input.keyboard?.once('keydown-SPACE', restart)
+    const continueGame = () => {
+      if (won && isFinalLevel) {
+        gameState.level = 0
+        gameState.lives = 3
+        this.scene.start('TitleScene')
+      } else {
+        if (won) {
+          gameState.level += 1
+        } else {
+          gameState.lives = 3
+        }
+        this.scene.restart()
+      }
+    }
+    retry.on('pointerdown', continueGame)
+    this.input.keyboard?.once('keydown-SPACE', continueGame)
   }
 
   private soundClick(frequency: number, volume: number) {

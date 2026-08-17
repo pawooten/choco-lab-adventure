@@ -2,6 +2,15 @@
 
 A 2D side-scrolling adventure starring Choco, a chibi chocolate lab. Collect dog biscuits, grab hot dogs for extra lives, boop woodland critters, and reach the doghouse.
 
+## Levels
+
+1. Sunny Meadow
+2. Biscuit Bay
+3. Hot Dog Factory
+4. Howling Hall haunted mansion
+5. Cosmic Bowling
+6. Escape from the Vet
+
 ## Run locally
 
 ```powershell
