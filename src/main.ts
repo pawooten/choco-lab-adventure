@@ -1401,6 +1401,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <footer>
       <span><kbd>A</kbd><kbd>D</kbd> or <kbd>←</kbd><kbd>→</kbd> to run</span>
       <span><kbd>W</kbd>, <kbd>↑</kbd>, or <kbd>Space</kbd> to jump</span>
+      <span><kbd>P</kbd> or <kbd>Esc</kbd> to pause / resume</span>
       <span>Jump on critters to boop them away</span>
     </footer>
   </main>
