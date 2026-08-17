@@ -42,9 +42,11 @@ window.chocoGameState = gameState
 class MeadowMusic {
   private context: AudioContext | undefined
   private masterGain: GainNode | undefined
+  private backgroundGain: GainNode | undefined
   private nextStepTime = 0
   private step = 0
   private enabled = true
+  private gameOverUntil = 0
   private readonly tempo = 112
   private readonly melody = [
     76, 79, 81, 79, 76, 74, 72, 74,
@@ -64,7 +66,10 @@ class MeadowMusic {
     if (!this.context) {
       this.context = new AudioContext()
       this.masterGain = this.context.createGain()
+      this.backgroundGain = this.context.createGain()
       this.masterGain.gain.value = this.enabled ? 0.13 : 0
+      this.backgroundGain.gain.value = 1
+      this.backgroundGain.connect(this.masterGain)
       this.masterGain.connect(this.context.destination)
       this.nextStepTime = this.context.currentTime + 0.08
       window.setInterval(() => this.scheduleAhead(), 40)
@@ -90,6 +95,56 @@ class MeadowMusic {
 
   isPlaying() {
     return this.enabled && this.context?.state === 'running'
+  }
+
+  isGameOverTunePlaying() {
+    return Boolean(this.context && this.context.currentTime < this.gameOverUntil)
+  }
+
+  resumeBackground() {
+    if (!this.context || !this.backgroundGain) {
+      return
+    }
+    this.gameOverUntil = 0
+    const now = this.context.currentTime
+    this.backgroundGain.gain.cancelScheduledValues(now)
+    this.backgroundGain.gain.setValueAtTime(this.backgroundGain.gain.value, now)
+    this.backgroundGain.gain.linearRampToValueAtTime(1, now + 0.18)
+  }
+
+  async playGameOverTune() {
+    if (!this.enabled) {
+      return
+    }
+    await this.start()
+    if (!this.context || !this.masterGain || !this.backgroundGain) {
+      return
+    }
+
+    const now = this.context.currentTime
+    this.backgroundGain.gain.cancelScheduledValues(now)
+    this.backgroundGain.gain.setValueAtTime(this.backgroundGain.gain.value, now)
+    this.backgroundGain.gain.linearRampToValueAtTime(0, now + 0.16)
+
+    const cueGain = this.context.createGain()
+    cueGain.gain.value = 1
+    cueGain.connect(this.masterGain)
+
+    const notes: Array<[number, number, number]> = [
+      [72, 0.08, 0.28],
+      [67, 0.38, 0.28],
+      [64, 0.68, 0.34],
+      [60, 1.05, 0.5],
+      [59, 1.62, 0.2],
+      [60, 1.86, 0.78],
+    ]
+    notes.forEach(([note, offset, duration]) => {
+      this.scheduleCueTone(note, now + offset, duration, 'square', 0.42, cueGain)
+      this.scheduleCueTone(note - 12, now + offset, duration * 1.05, 'triangle', 0.23, cueGain)
+    })
+
+    this.gameOverUntil = now + 2.75
+    window.setTimeout(() => cueGain.disconnect(), 3000)
   }
 
   private setVolume(value: number) {
@@ -149,7 +204,7 @@ class MeadowMusic {
     type: OscillatorType,
     volume: number,
   ) {
-    if (!this.context || !this.masterGain) {
+    if (!this.context || !this.backgroundGain) {
       return
     }
     const oscillator = this.context.createOscillator()
@@ -160,13 +215,13 @@ class MeadowMusic {
     envelope.gain.exponentialRampToValueAtTime(volume, time + 0.018)
     envelope.gain.exponentialRampToValueAtTime(0.001, time + duration)
     oscillator.connect(envelope)
-    envelope.connect(this.masterGain)
+    envelope.connect(this.backgroundGain)
     oscillator.start(time)
     oscillator.stop(time + duration + 0.02)
   }
 
   private scheduleKick(time: number) {
-    if (!this.context || !this.masterGain) {
+    if (!this.context || !this.backgroundGain) {
       return
     }
     const oscillator = this.context.createOscillator()
@@ -177,13 +232,13 @@ class MeadowMusic {
     envelope.gain.setValueAtTime(0.11, time)
     envelope.gain.exponentialRampToValueAtTime(0.001, time + 0.14)
     oscillator.connect(envelope)
-    envelope.connect(this.masterGain)
+    envelope.connect(this.backgroundGain)
     oscillator.start(time)
     oscillator.stop(time + 0.15)
   }
 
   private scheduleTick(time: number) {
-    if (!this.context || !this.masterGain) {
+    if (!this.context || !this.backgroundGain) {
       return
     }
     const oscillator = this.context.createOscillator()
@@ -193,9 +248,33 @@ class MeadowMusic {
     envelope.gain.setValueAtTime(0.025, time)
     envelope.gain.exponentialRampToValueAtTime(0.001, time + 0.035)
     oscillator.connect(envelope)
-    envelope.connect(this.masterGain)
+    envelope.connect(this.backgroundGain)
     oscillator.start(time)
     oscillator.stop(time + 0.04)
+  }
+
+  private scheduleCueTone(
+    midiNote: number,
+    time: number,
+    duration: number,
+    type: OscillatorType,
+    volume: number,
+    output: AudioNode,
+  ) {
+    if (!this.context) {
+      return
+    }
+    const oscillator = this.context.createOscillator()
+    const envelope = this.context.createGain()
+    oscillator.type = type
+    oscillator.frequency.setValueAtTime(440 * 2 ** ((midiNote - 69) / 12), time)
+    envelope.gain.setValueAtTime(0.001, time)
+    envelope.gain.exponentialRampToValueAtTime(volume, time + 0.02)
+    envelope.gain.exponentialRampToValueAtTime(0.001, time + duration)
+    oscillator.connect(envelope)
+    envelope.connect(output)
+    oscillator.start(time)
+    oscillator.stop(time + duration + 0.02)
   }
 }
 
@@ -561,6 +640,7 @@ class GameScene extends Phaser.Scene {
     gameState.status = 'playing'
     gameState.biscuits = 0
     gameState.lives = 3
+    meadowMusic.resumeBackground()
     controls.left = false
     controls.right = false
     controls.jump = false
@@ -1017,6 +1097,7 @@ class GameScene extends Phaser.Scene {
       gameState.status = 'game-over'
       this.isComplete = true
       this.physics.pause()
+      void meadowMusic.playGameOverTune()
       this.showEndCard(false)
       return
     }
