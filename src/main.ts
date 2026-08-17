@@ -13,6 +13,7 @@ declare global {
       totalBiscuits: number
       lives: number
       mode: GameMode
+      paused: boolean
     }
     chocoMusic: MeadowMusic
   }
@@ -35,6 +36,7 @@ const gameState = {
   totalBiscuits: 0,
   lives: 3,
   mode: 'normal' as GameMode,
+  paused: false,
 }
 
 window.chocoGameState = gameState
@@ -46,6 +48,7 @@ class MeadowMusic {
   private nextStepTime = 0
   private step = 0
   private enabled = true
+  private gamePaused = false
   private gameOverUntil = 0
   private readonly tempo = 112
   private readonly melody = [
@@ -82,7 +85,7 @@ class MeadowMusic {
 
   async toggle() {
     this.enabled = !this.enabled
-    if (this.enabled) {
+    if (this.enabled && !this.gamePaused) {
       await this.start()
     }
     this.setVolume(this.enabled ? 0.13 : 0)
@@ -99,6 +102,20 @@ class MeadowMusic {
 
   isGameOverTunePlaying() {
     return Boolean(this.context && this.context.currentTime < this.gameOverUntil)
+  }
+
+  async pauseForGame() {
+    this.gamePaused = true
+    if (this.context?.state === 'running') {
+      await this.context.suspend()
+    }
+  }
+
+  async resumeFromGamePause() {
+    this.gamePaused = false
+    if (this.enabled) {
+      await this.start()
+    }
   }
 
   resumeBackground() {
@@ -631,6 +648,9 @@ class GameScene extends Phaser.Scene {
   private checkpointX = 120
   private isInvulnerable = false
   private isComplete = false
+  private isPaused = false
+  private pauseButton!: Phaser.GameObjects.Text
+  private pauseOverlay!: Phaser.GameObjects.Container
 
   constructor() {
     super('GameScene')
@@ -640,6 +660,8 @@ class GameScene extends Phaser.Scene {
     gameState.status = 'playing'
     gameState.biscuits = 0
     gameState.lives = 3
+    gameState.paused = false
+    this.isPaused = false
     meadowMusic.resumeBackground()
     controls.left = false
     controls.right = false
@@ -679,6 +701,7 @@ class GameScene extends Phaser.Scene {
     }
 
     this.createHud()
+    this.createPauseUi()
 
     this.add
       .text(185, 350, 'Follow the biscuit trail!', {
@@ -704,10 +727,17 @@ class GameScene extends Phaser.Scene {
         .setOrigin(0.5)
       this.tweens.add({ targets: hint, alpha: 0, delay: 3000, duration: 500, onComplete: () => hint.destroy() })
     })
+
+    this.input.keyboard?.on('keydown-P', this.togglePause, this)
+    this.input.keyboard?.on('keydown-ESC', this.togglePause, this)
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.keyboard?.off('keydown-P', this.togglePause, this)
+      this.input.keyboard?.off('keydown-ESC', this.togglePause, this)
+    })
   }
 
   update() {
-    if (this.isComplete) {
+    if (this.isComplete || this.isPaused) {
       return
     }
 
@@ -993,6 +1023,93 @@ class GameScene extends Phaser.Scene {
 
     this.livesGroup = this.add.group()
     this.updateLivesHud()
+  }
+
+  private createPauseUi() {
+    this.pauseButton = this.add
+      .text(940, 65, 'PAUSE', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '15px',
+        color: '#fff4d6',
+        backgroundColor: '#784536',
+        padding: { x: 10, y: 7 },
+        fontStyle: 'bold',
+      })
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(1001)
+      .setInteractive({ useHandCursor: true })
+    this.pauseButton.on('pointerdown', () => this.togglePause())
+
+    const backdrop = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x221916, 0.72)
+      .setScrollFactor(0)
+    const panel = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, 520, 230, 0x2d201d, 0.97)
+      .setStrokeStyle(5, 0xffe7ab)
+      .setScrollFactor(0)
+    const title = this.add
+      .text(GAME_WIDTH / 2, 225, 'PAWS-ED!', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '42px',
+        color: '#fff4d6',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+    const instructions = this.add
+      .text(GAME_WIDTH / 2, 285, 'PRESS P, ESC, OR TAP RESUME', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '17px',
+        color: '#ffd47c',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+    const resume = this.add
+      .text(GAME_WIDTH / 2, 345, 'RESUME', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '20px',
+        color: '#4a2b25',
+        backgroundColor: '#fff4d6',
+        padding: { x: 22, y: 10 },
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true })
+    resume.on('pointerdown', () => this.togglePause())
+
+    this.pauseOverlay = this.add
+      .container(0, 0, [backdrop, panel, title, instructions, resume])
+      .setDepth(1000)
+      .setVisible(false)
+  }
+
+  private togglePause() {
+    if (this.isComplete) {
+      return
+    }
+
+    this.isPaused = !this.isPaused
+    gameState.paused = this.isPaused
+    this.pauseOverlay.setVisible(this.isPaused)
+    this.pauseButton.setText(this.isPaused ? 'RESUME' : 'PAUSE')
+
+    if (this.isPaused) {
+      this.physics.pause()
+      this.tweens.pauseAll()
+      this.player.anims.pause()
+      controls.left = false
+      controls.right = false
+      controls.jump = false
+      void meadowMusic.pauseForGame()
+    } else {
+      this.physics.resume()
+      this.tweens.resumeAll()
+      this.player.anims.resume()
+      void meadowMusic.resumeFromGamePause()
+    }
   }
 
   private updateLivesHud() {

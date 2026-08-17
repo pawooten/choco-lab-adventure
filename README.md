@@ -15,6 +15,7 @@ Open the local URL shown by Vite.
 
 - Move: `A` / `D` or arrow keys
 - Jump: `W`, Up Arrow, or Space
+- Pause/resume: `P`, Escape, or the in-game pause button
 - Touch controls appear automatically on touch devices
 
 ## Game modes
