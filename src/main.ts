@@ -14,6 +14,7 @@ declare global {
       lives: number
       mode: GameMode
     }
+    chocoMusic: MeadowMusic
   }
 }
 
@@ -37,6 +38,169 @@ const gameState = {
 }
 
 window.chocoGameState = gameState
+
+class MeadowMusic {
+  private context: AudioContext | undefined
+  private masterGain: GainNode | undefined
+  private nextStepTime = 0
+  private step = 0
+  private enabled = true
+  private readonly tempo = 112
+  private readonly melody = [
+    76, 79, 81, 79, 76, 74, 72, 74,
+    76, 79, 83, 81, 79, 76, 74, 0,
+    72, 76, 79, 76, 74, 72, 69, 72,
+    74, 77, 81, 79, 76, 74, 72, 0,
+  ]
+  private readonly chordRoots = [60, 67, 69, 65]
+  private readonly chordIntervals = [
+    [0, 4, 7, 12],
+    [0, 4, 7, 12],
+    [0, 3, 7, 12],
+    [0, 4, 7, 12],
+  ]
+
+  async start() {
+    if (!this.context) {
+      this.context = new AudioContext()
+      this.masterGain = this.context.createGain()
+      this.masterGain.gain.value = this.enabled ? 0.13 : 0
+      this.masterGain.connect(this.context.destination)
+      this.nextStepTime = this.context.currentTime + 0.08
+      window.setInterval(() => this.scheduleAhead(), 40)
+    }
+
+    if (this.context.state === 'suspended') {
+      await this.context.resume()
+    }
+  }
+
+  async toggle() {
+    this.enabled = !this.enabled
+    if (this.enabled) {
+      await this.start()
+    }
+    this.setVolume(this.enabled ? 0.13 : 0)
+    return this.enabled
+  }
+
+  isEnabled() {
+    return this.enabled
+  }
+
+  isPlaying() {
+    return this.enabled && this.context?.state === 'running'
+  }
+
+  private setVolume(value: number) {
+    if (!this.context || !this.masterGain) {
+      return
+    }
+    const now = this.context.currentTime
+    this.masterGain.gain.cancelScheduledValues(now)
+    this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now)
+    this.masterGain.gain.linearRampToValueAtTime(value, now + 0.12)
+  }
+
+  private scheduleAhead() {
+    if (!this.context) {
+      return
+    }
+    const secondsPerStep = 60 / this.tempo / 2
+    while (this.nextStepTime < this.context.currentTime + 0.2) {
+      this.scheduleStep(this.step, this.nextStepTime, secondsPerStep)
+      this.nextStepTime += secondsPerStep
+      this.step = (this.step + 1) % this.melody.length
+    }
+  }
+
+  private scheduleStep(step: number, time: number, duration: number) {
+    const phrase = Math.floor(step / 8)
+    const chordRoot = this.chordRoots[phrase]
+    const chord = this.chordIntervals[phrase]
+    const melodyNote = this.melody[step]
+
+    if (melodyNote) {
+      this.scheduleTone(melodyNote, time, duration * 0.82, 'square', 0.19)
+    }
+
+    if (step % 2 === 0) {
+      const arpeggioNote = chordRoot + chord[(step / 2) % chord.length]
+      this.scheduleTone(arpeggioNote, time, duration * 1.7, 'triangle', 0.09)
+    }
+
+    if (step % 4 === 0) {
+      this.scheduleTone(chordRoot - 24, time, duration * 3.2, 'triangle', 0.16)
+      this.scheduleKick(time)
+    } else if (step % 4 === 2) {
+      this.scheduleTick(time)
+    }
+
+    if (step === 7 || step === 23) {
+      this.scheduleTone(88, time, duration * 0.4, 'sine', 0.07)
+      this.scheduleTone(91, time + duration * 0.35, duration * 0.5, 'sine', 0.055)
+    }
+  }
+
+  private scheduleTone(
+    midiNote: number,
+    time: number,
+    duration: number,
+    type: OscillatorType,
+    volume: number,
+  ) {
+    if (!this.context || !this.masterGain) {
+      return
+    }
+    const oscillator = this.context.createOscillator()
+    const envelope = this.context.createGain()
+    oscillator.type = type
+    oscillator.frequency.setValueAtTime(440 * 2 ** ((midiNote - 69) / 12), time)
+    envelope.gain.setValueAtTime(0.001, time)
+    envelope.gain.exponentialRampToValueAtTime(volume, time + 0.018)
+    envelope.gain.exponentialRampToValueAtTime(0.001, time + duration)
+    oscillator.connect(envelope)
+    envelope.connect(this.masterGain)
+    oscillator.start(time)
+    oscillator.stop(time + duration + 0.02)
+  }
+
+  private scheduleKick(time: number) {
+    if (!this.context || !this.masterGain) {
+      return
+    }
+    const oscillator = this.context.createOscillator()
+    const envelope = this.context.createGain()
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(115, time)
+    oscillator.frequency.exponentialRampToValueAtTime(48, time + 0.12)
+    envelope.gain.setValueAtTime(0.11, time)
+    envelope.gain.exponentialRampToValueAtTime(0.001, time + 0.14)
+    oscillator.connect(envelope)
+    envelope.connect(this.masterGain)
+    oscillator.start(time)
+    oscillator.stop(time + 0.15)
+  }
+
+  private scheduleTick(time: number) {
+    if (!this.context || !this.masterGain) {
+      return
+    }
+    const oscillator = this.context.createOscillator()
+    const envelope = this.context.createGain()
+    oscillator.type = 'square'
+    oscillator.frequency.setValueAtTime(1550, time)
+    envelope.gain.setValueAtTime(0.025, time)
+    envelope.gain.exponentialRampToValueAtTime(0.001, time + 0.035)
+    oscillator.connect(envelope)
+    envelope.connect(this.masterGain)
+    oscillator.start(time)
+    oscillator.stop(time + 0.04)
+  }
+}
+
+const meadowMusic = new MeadowMusic()
+window.chocoMusic = meadowMusic
 
 const pixelTexture = (
   scene: Phaser.Scene,
@@ -362,6 +526,7 @@ class TitleScene extends Phaser.Scene {
 
     const begin = () => {
       if (this.scene.isActive()) {
+        void meadowMusic.start()
         this.scene.start('GameScene')
       }
     }
@@ -1024,6 +1189,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div class="legend" aria-label="Collectible guide">
         <span><b class="biscuit-dot"></b> Biscuits</span>
         <span><b class="hotdog-dot"></b> Hot dogs = extra lives</span>
+        <button id="music-control" type="button" aria-pressed="true">MUSIC: ON</button>
       </div>
     </header>
     <section class="game-frame" aria-label="Choco's Biscuit Quest game">
@@ -1063,6 +1229,13 @@ bindHoldControl('#right-control', 'right')
 document.querySelector<HTMLButtonElement>('#jump-control')!.addEventListener('pointerdown', (event) => {
   event.preventDefault()
   controls.jump = true
+})
+
+const musicControl = document.querySelector<HTMLButtonElement>('#music-control')!
+musicControl.addEventListener('click', async () => {
+  const enabled = await meadowMusic.toggle()
+  musicControl.textContent = enabled ? 'MUSIC: ON' : 'MUSIC: OFF'
+  musicControl.setAttribute('aria-pressed', enabled.toString())
 })
 
 const config: Phaser.Types.Core.GameConfig = {
