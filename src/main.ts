@@ -349,6 +349,7 @@ class GameScene extends Phaser.Scene {
     }
 
     this.physics.world.setBounds(0, 0, WORLD_WIDTH, GAME_HEIGHT)
+    this.physics.world.setBoundsCollision(true, true, true, false)
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, GAME_HEIGHT)
     this.cameras.main.setBackgroundColor('#88cfed')
 
