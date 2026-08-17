@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import './style.css'
 
 type GameStatus = 'title' | 'playing' | 'won' | 'game-over'
+type GameMode = 'normal' | 'casual'
 
 declare global {
   interface Window {
@@ -11,6 +12,7 @@ declare global {
       biscuits: number
       totalBiscuits: number
       lives: number
+      mode: GameMode
     }
   }
 }
@@ -31,6 +33,7 @@ const gameState = {
   biscuits: 0,
   totalBiscuits: 0,
   lives: 3,
+  mode: 'normal' as GameMode,
 }
 
 window.chocoGameState = gameState
@@ -286,23 +289,72 @@ class TitleScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
 
-    const start = this.add
-      .text(480, 435, 'PRESS SPACE OR TAP TO PLAY', {
+    this.add
+      .text(480, 374, 'CHOOSE A MODE', {
         fontFamily: '"Courier New", monospace',
-        fontSize: '23px',
-        color: '#fff9df',
-        backgroundColor: '#784536',
-        padding: { x: 22, y: 12 },
+        fontSize: '15px',
+        color: '#4a2b25',
         fontStyle: 'bold',
       })
       .setOrigin(0.5)
 
+    const normalButton = this.add
+      .text(390, 405, 'NORMAL', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '17px',
+        color: '#fff9df',
+        padding: { x: 13, y: 7 },
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+
+    const casualButton = this.add
+      .text(570, 405, 'CASUAL · NO DAMAGE', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '17px',
+        color: '#4a2b25',
+        padding: { x: 13, y: 7 },
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+
+    const updateModeButtons = () => {
+      const normalSelected = gameState.mode === 'normal'
+      normalButton.setBackgroundColor(normalSelected ? '#784536' : '#fff4d6')
+      normalButton.setColor(normalSelected ? '#fff9df' : '#4a2b25')
+      casualButton.setBackgroundColor(normalSelected ? '#fff4d6' : '#784536')
+      casualButton.setColor(normalSelected ? '#4a2b25' : '#fff9df')
+    }
+
+    const selectMode = (mode: GameMode) => {
+      gameState.mode = mode
+      updateModeButtons()
+    }
+
+    normalButton.on('pointerdown', () => selectMode('normal'))
+    casualButton.on('pointerdown', () => selectMode('casual'))
+    updateModeButtons()
+
+    const start = this.add
+      .text(480, 458, 'PRESS SPACE OR TAP TO PLAY', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '20px',
+        color: '#fff9df',
+        backgroundColor: '#784536',
+        padding: { x: 18, y: 9 },
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+
     this.tweens.add({ targets: start, alpha: 0.45, duration: 650, yoyo: true, repeat: -1 })
 
     this.add
-      .text(480, 500, 'Run: ← → / A D     Jump: SPACE / W / ↑', {
+      .text(480, 512, 'Run: ← → / A D     Jump: SPACE / W / ↑     Mode: N / C', {
         fontFamily: '"Courier New", monospace',
-        fontSize: '16px',
+        fontSize: '14px',
         color: '#fff9df',
         fontStyle: 'bold',
       })
@@ -314,7 +366,11 @@ class TitleScene extends Phaser.Scene {
       }
     }
     this.input.keyboard?.once('keydown-SPACE', begin)
-    this.input.once('pointerdown', begin)
+    this.input.keyboard?.on('keydown-N', () => selectMode('normal'))
+    this.input.keyboard?.on('keydown-C', () => selectMode('casual'))
+    this.input.keyboard?.on('keydown-LEFT', () => selectMode('normal'))
+    this.input.keyboard?.on('keydown-RIGHT', () => selectMode('casual'))
+    start.on('pointerdown', begin)
   }
 }
 
@@ -444,7 +500,7 @@ class GameScene extends Phaser.Scene {
     }
 
     if (this.player.y > GAME_HEIGHT + 30) {
-      this.damagePlayer()
+      this.damagePlayer('pit')
     }
 
     this.enemies.children.iterate((child) => {
@@ -678,6 +734,18 @@ class GameScene extends Phaser.Scene {
       })
       .setScrollFactor(0)
 
+    this.add
+      .text(940, 24, gameState.mode === 'casual' ? 'CASUAL · NO DAMAGE' : 'NORMAL', {
+        fontFamily: '"Courier New", monospace',
+        fontSize: '15px',
+        color: gameState.mode === 'casual' ? '#4a2b25' : '#fff4d6',
+        backgroundColor: gameState.mode === 'casual' ? '#fff4d6' : '#784536',
+        padding: { x: 10, y: 7 },
+        fontStyle: 'bold',
+      })
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+
     this.livesGroup = this.add.group()
     this.updateLivesHud()
   }
@@ -762,13 +830,19 @@ class GameScene extends Phaser.Scene {
       this.soundClick(260, 0.05)
       return
     }
-    this.damagePlayer()
+    this.damagePlayer('enemy', enemy.x)
   }
 
-  private damagePlayer() {
+  private damagePlayer(source: 'enemy' | 'pit', enemyX?: number) {
     if (this.isInvulnerable || this.isComplete) {
       return
     }
+
+    if (gameState.mode === 'casual') {
+      this.applyCasualKnockback(source, enemyX)
+      return
+    }
+
     gameState.lives -= 1
     this.updateLivesHud()
     this.cameras.main.shake(220, 0.012)
@@ -791,6 +865,34 @@ class GameScene extends Phaser.Scene {
       duration: 110,
       yoyo: true,
       repeat: 7,
+      onComplete: () => {
+        this.player.setAlpha(1)
+        this.isInvulnerable = false
+      },
+    })
+  }
+
+  private applyCasualKnockback(source: 'enemy' | 'pit', enemyX?: number) {
+    this.isInvulnerable = true
+    this.cameras.main.shake(120, 0.006)
+    this.soundClick(170, 0.06)
+
+    if (source === 'pit') {
+      this.player.setPosition(this.checkpointX, 390)
+      this.player.setVelocity(0, -180)
+      this.showFloatingText(this.checkpointX, 350, 'WHEW!', '#fff4d6')
+    } else {
+      const direction = this.player.x < (enemyX ?? this.player.x) ? -1 : 1
+      this.player.setVelocity(direction * 390, -290)
+      this.showFloatingText(this.player.x, this.player.y - 35, 'BONK!', '#fff4d6')
+    }
+
+    this.tweens.add({
+      targets: this.player,
+      alpha: 0.3,
+      duration: 90,
+      yoyo: true,
+      repeat: 5,
       onComplete: () => {
         this.player.setAlpha(1)
         this.isInvulnerable = false

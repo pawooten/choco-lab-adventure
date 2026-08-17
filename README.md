@@ -17,6 +17,13 @@ Open the local URL shown by Vite.
 - Jump: `W`, Up Arrow, or Space
 - Touch controls appear automatically on touch devices
 
+## Game modes
+
+- **Normal** (default): enemies and pit falls cost one life
+- **Casual**: enemies only knock Choco back, and pit falls respawn Choco without costing a life
+
+Choose a mode on the title screen with the buttons, Left/Right, or `N` / `C`.
+
 ## Build
 
 ```powershell
